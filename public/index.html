@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face ID Access</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="script.js"></script>
+    <style>
+        /* 다크 모드 배경 & 중앙 정렬 */
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #1a1a1a;
+            font-family: 'Segoe UI', sans-serif;
+            color: white;
+        }
+
+        /* 심플한 타이틀 */
+        h1 {
+            font-size: 1.2rem;
+            color: #888;
+            margin-bottom: 20px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* 📸 카메라 화면 (세로형) */
+        #camera-wrapper {
+            position: relative;
+            width: 400px;
+            height: 550px;
+            /* 세로로 김 */
+            background: #000;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            border: 2px solid #333;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            /* 화면 꽉 차게 */
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+
+        /* 컨트롤 영역 (버튼들) */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            gap: 25px;
+            /* 버튼 사이 간격 */
+        }
+
+        /* 🔌 1. 전원 버튼 스타일 */
+        #power-btn {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: none;
+            background-color: #333;
+            /* 꺼짐 (어두운 회색) */
+            color: #555;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: inset 0 0 10px #000;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 전원 켜짐 (초록 네온) */
+        #power-btn.on {
+            background-color: #00ff88;
+            color: #000;
+            box-shadow: 0 0 20px #00ff88;
+        }
+
+        #power-btn:hover {
+            transform: scale(1.05);
+        }
+
+        /* 🔄 2. 출퇴근 토글 버튼 스타일 */
+        #mode-btn {
+            padding: 15px 40px;
+            border-radius: 30px;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            min-width: 180px;
+            /* 글자 바뀌어도 크기 고정 */
+            text-align: center;
+        }
+
+        /* 출근 상태 (파랑) */
+        #mode-btn.in {
+            background-color: #2196F3;
+            color: white;
+            box-shadow: 0 0 15px #2196F3;
+        }
+
+        /* 퇴근 상태 (빨강) */
+        #mode-btn.out {
+            background-color: #ff5252;
+            color: white;
+            box-shadow: 0 0 15px #ff5252;
+        }
+
+        #mode-btn:active {
+            transform: scale(0.95);
+        }
+
+        #toast {
+            visibility: hidden;
+            /* 평소엔 숨김 */
+            min-width: 250px;
+            margin-left: -125px;
+            background-color: rgba(50, 50, 50, 0.9);
+            color: #fff;
+            text-align: center;
+            border-radius: 50px;
+            padding: 16px;
+            position: fixed;
+            z-index: 100;
+            /* 맨 위에 뜨게 */
+            left: 50%;
+            top: 100px;
+            /* 화면 위쪽에 뜸 */
+            font-size: 17px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            border: 1px solid #555;
+            transition: opacity 0.3s, top 0.3s;
+            opacity: 0;
+        }
+
+        /* 알림창 뜰 때 애니메이션 */
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+            top: 130px;
+            /* 살짝 내려오면서 등장 */
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>출퇴근 관리 시스템</h1>
+
+    <div id="camera-wrapper">
+        <video id="video" autoplay muted playsinline></video>
+        <div id="off-screen"
+            style="width:100%; height:100%; display:flex; justify-content:center; align-items:center; color:#555;">
+            SYSTEM OFF
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="power-btn" onclick="togglePower()">⏻</button>
+
+        <button id="mode-btn" class="in" onclick="toggleMode()">🟢 출근 모드</button>
+    </div>
+    
+    <div id="toast">메시지</div>
+
+</body>
+
+</html>

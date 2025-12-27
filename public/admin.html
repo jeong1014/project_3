@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>통합 인사 관리 시스템</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic';
+            background: #222;
+            color: white;
+            padding: 20px;
+        }
+
+        .container {
+            background: #333;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            border-bottom: 2px solid #555;
+            padding-bottom: 10px;
+            color: #fff;
+        }
+
+        input,
+        button {
+            padding: 8px;
+            margin: 5px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        input[type="text"] {
+            width: 150px;
+        }
+
+        .btn-register {
+            background: #2196F3;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            background: #444;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #555;
+            text-align: center;
+        }
+
+        th {
+            color: white;
+        }
+
+        .btn-time {
+            background: #ff9800;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-status {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+        }
+
+        .btn-del {
+            background: #f44336;
+            color: white;
+            cursor: pointer;
+        }
+
+        #user-table th {
+            background: #FF9800;
+        }
+
+        #current-table th {
+            background: #28a745;
+        }
+
+        #log-table th {
+            background: #007bff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>👤 신규 직원 등록</h2>
+        <input type="text" id="new-name" placeholder="이름">
+        <input type="text" id="new-dept" placeholder="부서">
+        <input type="file" id="new-photo" accept="image/*" style="background: white; color: black;">
+        <button class="btn-register" onclick="registerUser()">등록하기</button>
+        <h3 style="margin-top: 20px;">📋 등록된 직원 목록</h3>
+        <table id="user-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>이름</th>
+                    <th>부서</th>
+                    <th>관리</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h2>🏢 현재 사무실 근무자 (Live)</h2>
+        <table id="current-table">
+            <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>부서</th>
+                    <th>출근 시간</th>
+                    <th>상태</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div class="container">
+        <h2>📜 전체 출퇴근 기록</h2>
+        <table id="log-table">
+            <thead>
+                <tr>
+                    <th>이름</th>
+                    <th>부서</th>
+                    <th>출근 시간</th>
+                    <th>퇴근 시간</th>
+                    <th>상태</th>
+                    <th style="width: 200px;">관리</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = 'https://unanachronous-tacketed-orpha.ngrok-free.dev';
+
+        // 1. 직원 등록
+        function registerUser() {
+            const name = document.getElementById('new-name').value;
+            const dept = document.getElementById('new-dept').value;
+            const photo = document.getElementById('new-photo').files[0];
+            if (!name || !photo) return alert("이름과 사진은 필수입니다!");
+
+            const formData = new FormData();
+            formData.append('name', name);
+            formData.append('department', dept);
+            formData.append('photo', photo);
+
+            fetch(`${API_URL}/users`, { method: 'POST', body: formData })
+                .then(res => res.json())
+                .then(data => { alert(data.message); loadUsers(); })
+                .catch(err => alert("등록 실패: " + err));
+        }
+
+        function loadUsers() {
+            fetch(`${API_URL}/users`).then(res => res.json()).then(data => {
+                const tbody = document.querySelector('#user-table tbody');
+                tbody.innerHTML = '';
+                data.forEach(user => {
+                    tbody.innerHTML += `<tr><td>${user.id}</td><td>${user.username}</td><td>${user.department}</td><td><button class="btn-del" onclick="deleteUser(${user.id}, '${user.username}')">퇴사</button></td></tr>`;
+                });
+            });
+        }
+
+        // 2. 직원 삭제
+        function deleteUser(id, name) {
+            if (!confirm("삭제하시겠습니까?")) return;
+            const creds = getAdminCredentials();
+            if (!creds) return;
+
+            fetch(`${API_URL}/users/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...creds, username: name })
+            }).then(res => res.json()).then(data => { alert(data.message); loadUsers(); })
+                .catch(err => alert("삭제 에러: " + err));
+        }
+
+        // 3. 실시간 현황
+        function fetchCurrentUsers() {
+            fetch(`${API_URL}/current`).then(res => res.json()).then(data => {
+                const tbody = document.querySelector('#current-table tbody');
+                tbody.innerHTML = '';
+                if (data.length === 0) tbody.innerHTML = '<tr><td colspan="4">없음</td></tr>';
+                data.forEach(user => {
+                    tbody.innerHTML += `<tr><td><strong>${user.username}</strong></td><td>${user.department}</td><td>${new Date(user.check_in_time).toLocaleTimeString()}</td><td><span style="color:#76ff03;">🟢 근무중</span></td></tr>`;
+                });
+            });
+        }
+
+        // 4. 전체 기록 & 수정
+        function fetchAllLogs() {
+            fetch(`${API_URL}/logs`)
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.querySelector('#log-table tbody');
+                    tbody.innerHTML = '';
+
+                    data.forEach(log => {
+                        // 1. 날짜 포맷팅 (화면 표시용)
+                        const inTimeObj = new Date(log.check_in_time);
+                        const dateStr = inTimeObj.toLocaleString('ko-KR');
+                        const outTimeStr = log.check_out_time ? new Date(log.check_out_time).toLocaleTimeString('ko-KR') : '-';
+
+                        // 2. 수정용 날짜 포맷 (YYYY-MM-DD HH:MM:SS) - 출근용
+                        const dbInTime = formatDbDate(inTimeObj);
+
+                        // 3. 수정용 날짜 포맷 - 퇴근용 (없으면 현재시간으로 세팅)
+                        let dbOutTime = "";
+                        if (log.check_out_time) {
+                            dbOutTime = formatDbDate(new Date(log.check_out_time));
+                        } else {
+                            // 퇴근 기록이 없으면, 출근 날짜에 현재 시간만 붙여서 기본값 제안
+                            const now = new Date();
+                            dbOutTime = formatDbDate(now);
+                        }
+
+                        tbody.innerHTML += `
+                    <tr>
+                        <td>${log.username}</td>
+                        <td>${log.department}</td>
+                        <td>${dateStr}</td>
+                        <td>${outTimeStr}</td>
+                        <td>${log.status}</td>
+                        <td style="white-space: nowrap;">
+                            <button class="btn-time" onclick="updateLogTime(${log.log_id}, '${dbInTime}')" title="출근 시간 수정">⏰</button>
+                            <button style="background: #673AB7; color: white; cursor: pointer;" onclick="updateLogOutTime(${log.log_id}, '${dbOutTime}')" title="퇴근 시간 수정">🌙</button>
+                            <button class="btn-status" onclick="updateLogStatus(${log.log_id}, '${log.status}')" title="상태 수정">📝</button>
+                            <button class="btn-del" onclick="deleteLog(${log.log_id})" title="기록 삭제">🗑️</button>
+                        </td>
+                    </tr>`;
+                    });
+                });
+        }
+        function formatDbDate(dateObj) {
+            return dateObj.getFullYear() + "-" +
+                String(dateObj.getMonth() + 1).padStart(2, '0') + "-" +
+                String(dateObj.getDate()).padStart(2, '0') + " " +
+                String(dateObj.getHours()).padStart(2, '0') + ":" +
+                String(dateObj.getMinutes()).padStart(2, '0') + ":" +
+                String(dateObj.getSeconds()).padStart(2, '0');
+        }
+        function getAdminCredentials() {
+            const adminId = prompt("관리자 ID:");
+            if (!adminId) return null;
+            const adminPw = prompt("관리자 PW:");
+            if (!adminPw) return null;
+            return { adminId, adminPw };
+        }
+
+        function updateLogTime(id, oldTime) {
+            const creds = getAdminCredentials();
+            if (!creds) return;
+            const newTime = prompt("변경할 '출근' 시간 (YYYY-MM-DD HH:MM:SS):", oldTime);
+            if (!newTime) return;
+            sendUpdate(id, creds, 'time', newTime);
+        }
+
+        function updateLogOutTime(id, oldTime) {
+            const creds = getAdminCredentials();
+            if (!creds) return;
+            const newTime = prompt("변경할 '퇴근' 시간 (YYYY-MM-DD HH:MM:SS):", oldTime);
+            if (!newTime) return;
+            sendUpdate(id, creds, 'out_time', newTime); // 타입: out_time
+        }
+        function updateLogStatus(id, oldStatus) {
+            const creds = getAdminCredentials();
+            if (!creds) return;
+            const newStatus = prompt("변경할 상태:", oldStatus);
+            if (!newStatus) return;
+            sendUpdate(id, creds, 'status', newStatus);
+        }
+
+        // 핵심: 수정 요청 보내는 함수 (에러 처리 추가됨)
+        function sendUpdate(id, creds, type, value) {
+            fetch(`${API_URL}/logs/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...creds, type, value })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message);
+                    if (data.success) fetchAllLogs(); // 성공 시 목록 갱신
+                })
+                .catch(err => alert("서버 통신 오류: " + err));
+        }
+
+        function deleteLog(id) {
+            if (!confirm("기록 삭제?")) return;
+            const creds = getAdminCredentials();
+            if (!creds) return;
+            fetch(`${API_URL}/logs/${id}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(creds)
+            }).then(res => res.json()).then(data => { alert(data.message); fetchAllLogs(); })
+                .catch(err => alert("삭제 오류: " + err));
+        }
+
+        // 🔐 관리자 인증 함수 (프론트엔드에서 즉시 검사!)
+        function getAdminCredentials() {
+            const inputId = prompt("관리자 아이디를 입력하세요:");
+            if (!inputId) return null; // 취소 누르면 종료
+
+            const inputPw = prompt("관리자 비밀번호를 입력하세요:");
+            if (!inputPw) return null; // 취소 누르면 종료
+
+            // 🔥 여기서 바로 검사! (서버랑 똑같이 맞춰주세요)
+            // 주의: 실제 서비스에선 이렇게 비번을 코드에 적으면 위험하지만, 포트폴리오용으론 OK!
+            const REAL_ID = "admin";
+            const REAL_PW = "1234";
+
+            if (inputId !== REAL_ID || inputPw !== REAL_PW) {
+                alert("❌ 아이디 또는 비밀번호가 틀렸습니다! (다시 시도하세요)");
+                return null; // 틀렸으니 서버로 요청도 안 보냄
+            }
+
+            // 맞으면 정보 리턴
+            return { adminId: inputId, adminPw: inputPw };
+        }
+
+        loadUsers();
+        fetchCurrentUsers();
+        fetchAllLogs();
+        setInterval(() => { fetchCurrentUsers(); fetchAllLogs(); }, 3000);
+    </script>
+</body>
+
+</html>
